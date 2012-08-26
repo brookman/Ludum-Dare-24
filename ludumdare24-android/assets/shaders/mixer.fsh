@@ -12,11 +12,12 @@ uniform float uFactor1;
 uniform float uFactor2;
 
 uniform float uNoise;
+uniform float uTime;
 
 varying vec2 vTextureCoord;
 
 float rand(vec2 co) {
-	return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+	return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453 * uTime);
 }
 
 void main(void) {

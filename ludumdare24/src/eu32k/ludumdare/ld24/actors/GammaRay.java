@@ -7,21 +7,27 @@ import java.util.List;
 import math.geom2d.AffineTransform2D;
 import math.geom2d.Box2D;
 import math.geom2d.Point2D;
+import math.geom2d.line.AbstractLine2D;
 import math.geom2d.line.LineSegment2D;
 import math.geom2d.line.Ray2D;
 
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 
+import eu32k.libgdx.geometry.PrimitivesFactory;
 import eu32k.libgdx.math.InterpolatedAnimation;
 import eu32k.libgdx.math.Interpolation.Type;
+import eu32k.libgdx.rendering.Textures;
 
-public class GammaRay implements Actor {
+public class GammaRay extends Actor {
 
-   private Box2D box = new Box2D(-50, 50, -50, 50);
+   private Box2D box = new Box2D(-10, 10, -10, 1140);
 
    private Ray2D ray;
    private ShapeRenderer shapeRenderer;
@@ -32,12 +38,14 @@ public class GammaRay implements Actor {
 
    private ArrayList<LineSegment2D> subRays = new ArrayList<LineSegment2D>();
 
-   public GammaRay() {
-      randomReset();
-   }
+   private Texture texture;
+   private ShaderProgram shader;
 
-   public GammaRay(Vector2 start, Vector2 end) {
+   public GammaRay(Vector2 start, Vector2 end, ShaderProgram shader) {
       reset(start, end);
+      setType(ActorType.RAY);
+      texture = Textures.get("textures/ray.png");
+      this.shader = shader;
    }
 
    private void randomReset() {
@@ -45,7 +53,7 @@ public class GammaRay implements Actor {
       reset(new Vector2(MathUtils.cos(angle) * 10.0f, MathUtils.sin(angle) * 10.0f), new Vector2(0, 0));
    }
 
-   private void reset(Vector2 start, Vector2 end) {
+   public void reset(Vector2 start, Vector2 end) {
       ray = new Ray2D(new Point2D(start.x, start.y), new Point2D(end.x, end.y));
       shapeRenderer = new ShapeRenderer();
 
@@ -56,13 +64,15 @@ public class GammaRay implements Actor {
    public void updateRay(List<Actor> actors) {
 
       if (life.getValue() == 1.0f) {
-         randomReset();
+         // randomReset();
       }
+
       currentDamage = (float) damage.getValue();
 
       subRays.clear();
       Ray2D currentRay = ray;
-      Actor lastHit = null;
+      // Actor lastHit = null;
+      Point2D lastIntersection = null;
 
       int iterations = 0;
       while (iterations++ < 6) {
@@ -74,13 +84,16 @@ public class GammaRay implements Actor {
          Point2D intersectionPoint = null;
 
          for (Actor a : actors) {
-            if (a.getShape() == null || a == lastHit) {
+            if (a.getShape() == null) {// || a == lastHit) {
                continue;
             }
 
             for (LineSegment2D segment : a.getShape()) {
                Point2D intersection = currentRay.intersection(segment);
                if (intersection != null) {
+                  if (lastIntersection != null && lastIntersection.almostEquals(intersection, 0.0001)) {
+                     continue;
+                  }
                   double distance = currentRay.origin().distance(intersection);
                   if (distance < minDistance) {
                      minDistance = distance;
@@ -96,19 +109,24 @@ public class GammaRay implements Actor {
 
          if (nearestActor != null) {
             subRays.add(new LineSegment2D(currentRay.origin(), intersectionPoint));
-            if (nearestActor instanceof Deflector) {
-               lastHit = nearestActor;
+            if (nearestActor.getType() == ActorType.DEFLECTOR) {
+               lastIntersection = intersectionPoint;
                AffineTransform2D reflection = AffineTransform2D.createLineReflection(intersectionSegment);
                currentRay = new Ray2D(intersectionPoint, reflection.transform(currentRay.clip(box).lastPoint()));
             } else {
-               if (nearestActor instanceof Target) {
-                  Target target = (Target) nearestActor;
-                  target.dot += damage.getValue();
+               if (nearestActor.getType() == ActorType.CELL) {
+                  // Target target = (Target) nearestActor;
+                  // target.dot += damage.getValue();
                }
                break;
             }
          } else {
-            subRays.add((LineSegment2D) currentRay.clip(box).get(0));
+
+            AbstractLine2D l = currentRay.clip(box).get(0);
+            if (l instanceof LineSegment2D) {
+               subRays.add((LineSegment2D) l);
+            }
+
             break;
          }
       }
@@ -116,21 +134,44 @@ public class GammaRay implements Actor {
    }
 
    @Override
-   public void render(Matrix4 matrix) {
+   public void render(Matrix4 camMatrix) {
 
-      shapeRenderer.setProjectionMatrix(matrix);
-      shapeRenderer.begin(ShapeType.Line);
-      float color = 1.0f - currentDamage / 10.0f;
-      shapeRenderer.setColor(color, color, color, 1.0f);
+      texture.bind();
+      shader.begin();
 
       for (LineSegment2D segment : subRays) {
-         shapeRenderer.line((float) segment.firstPoint().getX(), (float) segment.firstPoint().getY(), (float) segment.lastPoint().getX(), (float) segment.lastPoint().getY());
+         Vector3 center = new Vector3((float) ((segment.firstPoint().getX() + segment.lastPoint().getX()) / 2.0), (float) ((segment.firstPoint().getY() + segment.lastPoint().getY()) / 2.0), 0.0f);
+
+         Matrix4 matrix = new Matrix4().mul(new Matrix4().translate(center).rotate(0, 0, 1, (float) segment.direction().angle() * MathUtils.radiansToDegrees)
+               .scale((float) segment.length() + 0.05f, 0.04f, 1.0f));
+         shader.setUniformMatrix("uMVMatrix", matrix);
+         shader.setUniformMatrix("uPMatrix", camMatrix);
+
+         PrimitivesFactory.QUAD.render(shader, GL20.GL_TRIANGLES);
       }
-      shapeRenderer.end();
+
+      shader.end();
+
+      // shapeRenderer.setProjectionMatrix(matrix);
+      // shapeRenderer.begin(ShapeType.Line);
+      // float color = 1.0f - currentDamage / 10.0f;
+      // shapeRenderer.setColor(color, color, color, 1.0f);
+      //
+      // for (LineSegment2D segment : subRays) {
+      // shapeRenderer.line((float) segment.firstPoint().getX(), (float)
+      // segment.firstPoint().getY(), (float) segment.lastPoint().getX(),
+      // (float) segment.lastPoint().getY());
+      // }
+      // shapeRenderer.end();
    }
 
    @Override
    public Collection<LineSegment2D> getShape() {
       return null;
+   }
+
+   @Override
+   public boolean hitTest(float x, float y) {
+      return false;
    }
 }

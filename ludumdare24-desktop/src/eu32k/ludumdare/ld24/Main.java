@@ -6,7 +6,7 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
 public class Main {
    public static void main(String[] args) {
       LwjglApplicationConfiguration cfg = new LwjglApplicationConfiguration();
-      cfg.title = "Ludum Dare 24";
+      cfg.title = "Gamma Ray Deflector";
       cfg.useGL20 = true;
       cfg.width = 800;
       cfg.height = 600;
@@ -16,6 +16,6 @@ public class Main {
       cfg.samples = 8;
       cfg.fullscreen = false;
 
-      new LwjglApplication(new LudumDare24_new(), cfg);
+      new LwjglApplication(new LudumDare24(), cfg);
    }
 }
