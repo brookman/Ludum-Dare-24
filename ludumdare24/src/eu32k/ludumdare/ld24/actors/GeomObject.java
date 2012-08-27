@@ -5,9 +5,10 @@ import java.util.Collection;
 import java.util.List;
 
 import math.geom2d.AffineTransform2D;
+import math.geom2d.Box2D;
 import math.geom2d.Point2D;
 import math.geom2d.line.LineSegment2D;
-import math.geom2d.polygon.SimplePolygon2D;
+import math.geom2d.polygon.LinearRing2D;
 import aurelienribon.bodyeditor.BodyEditorLoader.PolygonModel;
 import aurelienribon.bodyeditor.BodyEditorLoader.RigidBodyModel;
 
@@ -32,7 +33,7 @@ public class GeomObject extends Actor {
    private List<Mesh> meshes;
    private Texture texture;
 
-   private List<SimplePolygon2D> rings;
+   private List<LinearRing2D> rings;
 
    private Vector3 pos = new Vector3(0.0f, 0.0f, 0.0f);
    private Vector3 rot = new Vector3(0.0f, 0.0f, 0.0f);
@@ -50,10 +51,10 @@ public class GeomObject extends Actor {
 
    private void build() {
       meshes = new ArrayList<Mesh>();
-      rings = new ArrayList<SimplePolygon2D>();
+      rings = new ArrayList<LinearRing2D>();
 
       for (PolygonModel pm : model.polygons) {
-         SimplePolygon2D poly = new SimplePolygon2D();
+         LinearRing2D poly = new LinearRing2D();
          float[] blob = new float[pm.vertices.size() * 8];
          int c = 0;
          for (Vector2 vertex : pm.vertices) {
@@ -98,14 +99,27 @@ public class GeomObject extends Actor {
 
       // shapeRenderer.setProjectionMatrix(camMatrix);
       // shapeRenderer.begin(ShapeType.Line);
-      // shapeRenderer.setColor(1, 0, 0, 1);
+      // shapeRenderer.setColor(0, 0, 0, 1);
       //
-      // Collection<LineSegment2D> edges = getShape();
-      // for (LineSegment2D segment : edges) {
-      // shapeRenderer.line((float) segment.firstPoint().getX(), (float)
-      // segment.firstPoint().getY(), (float) segment.lastPoint().getX(),
-      // (float) segment.lastPoint().getY());
+      // float minX = Float.POSITIVE_INFINITY;
+      // float maxX = Float.NEGATIVE_INFINITY;
+      // float minY = Float.POSITIVE_INFINITY;
+      // float maxY = Float.NEGATIVE_INFINITY;
+      //
+      // for (LineSegment2D seg : getShape()) {
+      // minX = Math.min(minX, (float) seg.firstPoint().getX());
+      // maxX = Math.max(maxX, (float) seg.firstPoint().getX());
+      // minY = Math.min(minY, (float) seg.firstPoint().getY());
+      // maxY = Math.max(maxY, (float) seg.firstPoint().getY());
+      //
+      // minX = Math.min(minX, (float) seg.lastPoint().getX());
+      // maxX = Math.max(maxX, (float) seg.lastPoint().getX());
+      // minY = Math.min(minY, (float) seg.lastPoint().getY());
+      // maxY = Math.max(maxY, (float) seg.lastPoint().getY());
       // }
+      //
+      // shapeRenderer.line(minX, minY, maxX, maxY);
+      //
       // shapeRenderer.end();
    }
 
@@ -144,8 +158,8 @@ public class GeomObject extends Actor {
       AffineTransform2D tRot = AffineTransform2D.createRotation(rot.z * MathUtils.degreesToRadians);
 
       Collection<LineSegment2D> collection = new ArrayList<LineSegment2D>();
-      for (SimplePolygon2D ring : rings) {
-         SimplePolygon2D transformed = ring.transform(tRot).transform(tPos);
+      for (LinearRing2D ring : rings) {
+         LinearRing2D transformed = ring.transform(tRot).transform(tPos);
          collection.addAll(transformed.edges());
       }
 
@@ -154,15 +168,25 @@ public class GeomObject extends Actor {
 
    @Override
    public boolean hitTest(float x, float y) {
-      AffineTransform2D tPos = AffineTransform2D.createTranslation(pos.x, pos.y);
-      AffineTransform2D tRot = AffineTransform2D.createRotation(rot.z * MathUtils.degreesToRadians);
 
-      for (SimplePolygon2D ring : rings) {
-         SimplePolygon2D transformed = ring.transform(tRot).transform(tPos);
-         if (transformed.boundingBox().contains(x, y)) {
-            return true;
-         }
+      float minX = Float.POSITIVE_INFINITY;
+      float maxX = Float.NEGATIVE_INFINITY;
+      float minY = Float.POSITIVE_INFINITY;
+      float maxY = Float.NEGATIVE_INFINITY;
+
+      for (LineSegment2D seg : getShape()) {
+         minX = Math.min(minX, (float) seg.firstPoint().getX());
+         maxX = Math.max(maxX, (float) seg.firstPoint().getX());
+         minY = Math.min(minY, (float) seg.firstPoint().getY());
+         maxY = Math.max(maxY, (float) seg.firstPoint().getY());
+
+         minX = Math.min(minX, (float) seg.lastPoint().getX());
+         maxX = Math.max(maxX, (float) seg.lastPoint().getX());
+         minY = Math.min(minY, (float) seg.lastPoint().getY());
+         maxY = Math.max(maxY, (float) seg.lastPoint().getY());
       }
-      return false;
+
+      Box2D boundingBox = new Box2D(minX, maxX, minY, maxY);
+      return boundingBox.contains(x, y);
    }
 }

@@ -6,7 +6,6 @@
 #endif
 
 varying vec2 vTextureCoord;
-//varying vec4 vPosition;
 
 uniform sampler2D uTexture;
 

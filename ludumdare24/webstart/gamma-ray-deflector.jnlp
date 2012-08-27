@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jnlp spec="1.0+" codebase="http://32k.eu/ld24" href="gamma-ray-deflector.jnlp">
+    <information>
+        <title>Gamma Ray Deflector</title>
+        <vendor>brookman32k</vendor>
+    </information>
+	
+    <resources>
+        <!-- Application Resources -->
+        <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
+		<extension name="lwjgl" href="http://lwjgl.org/jnlp/extension.php" />
+        <jar href="gamma-ray-deflector.jar" main="true" />
+    </resources>
+	
+	<security>
+		<all-permissions/>
+	</security>
+    <application-desc
+         name="Gamma Ray Deflector"
+         main-class="eu32k.ludumdare.ld24.Main"
+         width="800"
+         height="600">
+     </application-desc>
+     <update check="background"/>
+</jnlp>
